@@ -14,6 +14,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 2f4e8a869cea8d760ef9cb7511a7856c335818aa
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,8 +31,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['Django_Key']
 
 # SECURITY WARNING: don't run with debug turned on in production!
+<<<<<<< HEAD
 # DEBUG = True
 DEBUG = False
+=======
+DEBUG = True
+# DEBUG = False
+>>>>>>> 2f4e8a869cea8d760ef9cb7511a7856c335818aa
 
 ALLOWED_HOSTS = ['*']
 

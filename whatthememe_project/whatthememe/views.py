@@ -11,6 +11,11 @@ from django.contrib.auth.decorators import login_required
 import requests
 import random
 import json
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
 
 cards = []
 memes = []
@@ -30,7 +35,7 @@ def getCards():
     global cards
     url = "https://cards-against-humanity.p.rapidapi.com/white/25"
     headers = {
-        "X-RapidAPI-Key": "89b2f4fcc3mshb1c4db4c3ef15afp151f39jsn4718f6fb42de",
+        "X-RapidAPI-Key": os.environ['X-RapidAPI-Key'],
         "X-RapidAPI-Host": "cards-against-humanity.p.rapidapi.com"
     }
     response = requests.request("GET", url, headers=headers)
@@ -39,12 +44,13 @@ def getCards():
     for card in JSON_response:
         cards.append(card['text'])
 
+
 def getMemes():
+    # returns about 100 memes in an array
     global memes
     url = 'https://api.imgflip.com/get_memes'
     response = requests.request('GET', url)
     JSON_response = json.loads(response.text)
-    # reuturns about 100 memes in an array
     memeArray = JSON_response['data']['memes']
     for meme in memeArray:
         memes.append(meme['url'])
@@ -57,7 +63,6 @@ def get_meme_card(request):
     # running into issue of returning more than one.
     game_user = Game_User.objects.filter(player = user)
     print('LINE 60 GAME USER', game_user)
-    # user_64= Game_User.objects.get(player = user)
     game_1 = game_user[len(game_user)-1].game
     round = game_1.round
     getMemes()
@@ -94,7 +99,6 @@ def sign_up(request):
             return JsonResponse({'success': "True"})
     except Exception as e:
         return JsonResponse({'success': "False", 'reason': str(e)})
-    # return JsonResponse({'Success': False, 'reason':'sign-up failed'})
 
 @api_view(['POST'])
 def log_in(request):
@@ -121,10 +125,9 @@ def log_in(request):
                 return JsonResponse({'success': "False", 'reason': f'failed to login, {str(e)}'})
         else:
             return JsonResponse({'success': "False", 'reason': 'This account has been disabled, please sign-up again'})
-            # Return a 'disabled account' error message
     else:
         return JsonResponse({'success': "False", 'reason': "This account doesn't exist, please sign-up"})    
-        # Return an 'invalid login' error message.
+
 
 @api_view(['POST'])
 def log_out(request):
@@ -165,7 +168,6 @@ def who_am_i(request):
         return JsonResponse({'user':None})
 
 #once friends request is approved I will add them to each other's lists
-#need to decide what I want to do if declined... also probably need a pending "friend request" area
 @api_view(['PUT'])
 @login_required
 def add_friend(request): #accepts a friend request
@@ -299,13 +301,9 @@ def decline_friend_request(request):
     print('YOU ARE IN THE PUT REQUEST ON DJANGO FOR DECLINE FRIEND REQUESTS')
     user_email = request.user.email
     user = getUser(user_email)
-    # print('user', user, 'email:', user_email)
     friend_email = request.data['friend_email']
-    # print('friend_email', friend_email)
     friend = getUser(friend_email)
-    
     friend_request = FriendRequest.objects.get(sender = friend, receiver = user, is_active = True)
-    print('decline friend request:', friend_request)
     if friend_request:
         friend_request.is_active = False
         friend_request.save()
@@ -333,9 +331,6 @@ def create_card(game, owner):
         print('GAME CARD = :', game_card)
         game.card_count+=1
         game.save()
-        # print('GAME CARD COUNT IS NOW', game.card_count)
-        # cardCount+=1
-        # print('CARD COUNT', cardCount)
         return game_card 
     except Exception as e:
         print(str(e))
@@ -362,9 +357,6 @@ def draw_card(request):
     except Exception as e:
         return JsonResponse({'success': False, 'reason': str(e)})
 
-
-
-
 @api_view(['POST'])
 @login_required
 def start_game(request):
@@ -380,9 +372,7 @@ def start_game(request):
         game_user = Game_User(game = game, player = user)
         game_user.full_clean
         game_user.save()
-        print('GAME USER IS!!!! ', game_user)
-        # this works, but just going to comment it out while debugging the rest
-        print('IN START GAME -- GAME CODE IS', game_code)
+        # print('IN START GAME -- GAME CODE IS', game_code)
         getCards()
         user_cards = []
         while len(user_cards) < 6:
@@ -400,7 +390,6 @@ def start_game(request):
 @login_required
 def join_game(request):
     game_code= request.data['game_code']
-    # game_code = input("What is the code for the game you'd like to join?")
     user_email = request.user.email
     user = getUser(user_email)
     game = Game.objects.get(code = game_code)
@@ -410,13 +399,11 @@ def join_game(request):
             game_user.full_clean
             game_user.save()
             print('JOIN GAME USER IS!!!! ', game_user)
-            # this works, but just going to comment it out while debugging the rest
             getCards()
             user_cards = []
             while len(user_cards) < 6:
                 card=create_card(game, game_user)
                 user_cards.append(model_to_dict(card))
-            # print('USER CARDS ARE', user_cards, 'len user cards', len(user_cards))
             return JsonResponse({'success':'True','user_cards': user_cards, 'game': model_to_dict(game)})
         except Exception as e:
             return JsonResponse({'success': False, 'reason': str(e)})
@@ -431,46 +418,45 @@ def selected_card(request):
     print('YOU ARE IN THE PUT REQUEST ON DJANGO FOR SELECTED CARD')
     round = request.data['round']
     card_id= request.data['id']
-    print('SELECTED CARD_ID', card_id, 'TYPE', type(card_id), 'CARD ROUND', round)
+    # print('SELECTED CARD_ID', card_id, 'TYPE', type(card_id), 'CARD ROUND', round)
     card = Game_Card.objects.get(id=card_id)
     print('CARD SELECTED', card)
     try:
         card.round_selected = round
         card.save()
-        print('round selected', card.round_selected)
+        # print('round selected', card.round_selected)
         return JsonResponse({'success':True, 'action': 'card round selected updated'})
     except Exception as e:
         return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
 
-@api_view(['GET'])
-@login_required    
-def view_selected_cards(request):
-    print('YOU ARE IN THE VIEW SELECTED CARDS')
-    user_email = request.user.email
-    user = getUser(user_email)
-    # game_user= Game_User.objects.get(player = user)
-    game_user = Game_User.objects.filter(player = user)
-    game_1 = game_user[len(game_user)-1].game
-    round = game_1.round
-    print('VIEW SELECTED CARDS GAME', game_1, 'SELECTED CARDS ROUND', round)
-    selected_cards_objects= Game_Card.objects.filter(round_selected=round, game = game_1)
-    print('SELECTED CARD OBJECTS LINE 453', selected_cards_objects)
-    if selected_cards_objects:
-        try:
-            selected_cards=[]
-            for card in selected_cards_objects:
-                if model_to_dict(card) not in selected_cards:
-                    selected_cards.append(model_to_dict(card))
-            return JsonResponse({'success':True, 'selected_cards': selected_cards})
-        except Exception as e:
-            return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
-    else: 
-        return JsonResponse({'success':False, 'reason': 'no selected cards'})
+# @api_view(['GET'])
+# @login_required    
+# def view_selected_cards(request):
+#     print('YOU ARE IN THE VIEW SELECTED CARDS')
+#     user_email = request.user.email
+#     user = getUser(user_email)
+#     # game_user= Game_User.objects.get(player = user)
+#     game_user = Game_User.objects.filter(player = user)
+#     game_1 = game_user[len(game_user)-1].game
+#     round = game_1.round
+#     print('VIEW SELECTED CARDS GAME', game_1, 'SELECTED CARDS ROUND', round)
+#     selected_cards_objects= Game_Card.objects.filter(round_selected=round, game = game_1)
+#     print('SELECTED CARD OBJECTS LINE 453', selected_cards_objects)
+#     if selected_cards_objects:
+#         try:
+#             selected_cards=[]
+#             for card in selected_cards_objects:
+#                 if model_to_dict(card) not in selected_cards:
+#                     selected_cards.append(model_to_dict(card))
+#             return JsonResponse({'success':True, 'selected_cards': selected_cards})
+#         except Exception as e:
+#             return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
+#     else: 
+#         return JsonResponse({'success':False, 'reason': 'no selected cards'})
 
 @api_view(['POST'])
 @login_required
 def vote(request):
-    print('YOU ARE IN THE VOTE')
     card_id= request.data['id']
     round= request.data['round']
     print('VOTED FOR CARD_ID', card_id, 'round', round)
@@ -481,7 +467,7 @@ def vote(request):
     game_user = Game_User.objects.filter(player = user)
     game_user_1 = game_user[len(game_user)-1]
     card = Game_Card.objects.get(id=card_id)
-    print('CARD VOTED FOR', card)
+    # print('CARD VOTED FOR', card)
     try:
         card.votes+=1
         card.save()
@@ -492,61 +478,61 @@ def vote(request):
     except Exception as e:
         return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
 
-@api_view(['PUT'])
-# doing a put so I can pass in the round
-@login_required    
-def view_votes(request):
-    print('YOU ARE IN THE VIEW VOTES')
-    round = request.data['round']
-    game_code = request.data['game_code']
-    print('GAME CODE LINE 479', game_code)
-    game = Game.objects.get(code = game_code)
-    print('VIEW VOTE GAME', game)
-    # cards that were selected that round
-    # don't think I need to do this b/c can just grab the votes from the front end since I'm sending in the object cards
-    # selected_cards_objects= Game_Card.objects.filter(round_selected=round, game = game)
-    players_that_voted_objects = Game_User.objects.filter(completed_vote_on_round = round, game= game)
-    print('PLAYERS THAT VOTED', players_that_voted_objects)
-    if players_that_voted_objects:
-        try:
-            players_that_voted=[]
-            for game_user in players_that_voted_objects:
-                user = game_user.player
-                if user.email not in players_that_voted:
-                    players_that_voted.append(user.email)
-            return JsonResponse({'success':True, 'players_that_voted': players_that_voted})
-        except Exception as e:
-            return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
-    else: 
-        return JsonResponse({'success':False, 'reason': 'nobody has voted yet'})
+# @api_view(['PUT'])
+# # doing a put so I can pass in the round
+# @login_required    
+# def view_votes(request):
+#     print('YOU ARE IN THE VIEW VOTES')
+#     round = request.data['round']
+#     game_code = request.data['game_code']
+#     print('GAME CODE LINE 479', game_code)
+#     game = Game.objects.get(code = game_code)
+#     print('VIEW VOTE GAME', game)
+#     # cards that were selected that round
+#     # don't think I need to do this b/c can just grab the votes from the front end since I'm sending in the object cards
+#     # selected_cards_objects= Game_Card.objects.filter(round_selected=round, game = game)
+#     players_that_voted_objects = Game_User.objects.filter(completed_vote_on_round = round, game= game)
+#     print('PLAYERS THAT VOTED', players_that_voted_objects)
+#     if players_that_voted_objects:
+#         try:
+#             players_that_voted=[]
+#             for game_user in players_that_voted_objects:
+#                 user = game_user.player
+#                 if user.email not in players_that_voted:
+#                     players_that_voted.append(user.email)
+#             return JsonResponse({'success':True, 'players_that_voted': players_that_voted})
+#         except Exception as e:
+#             return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
+#     else: 
+#         return JsonResponse({'success':False, 'reason': 'nobody has voted yet'})
 
-@api_view(['GET'])
-@login_required    
-def players(request):
-    # print('YOU ARE IN THE PLAYERS')
-    user_email = request.user.email
-    user = getUser(user_email)
-    # game_user= Game_User.objects.get(player = user)
-    game_user = Game_User.objects.filter(player = user)
-    game = game_user[len(game_user)-1].game    
-    all_game_users= Game_User.objects.filter(game = game)
-    print('ALL GAME USERS', all_game_users)
-    if all_game_users:
-        try:
-            players=[]
-            game_user_array=[]
-            for game_user in all_game_users:
-                user = game_user.player
-                if user.email not in players:
-                    players.append([user.email, game_user.player_points])
-                if model_to_dict(game_user) not in game_user_array:
-                    game_user_array.append(model_to_dict(game_user))
-            print('GAME USER ARRAY LINE 540', game_user_array)
-            return JsonResponse({'success':True, 'players': players, 'game_user_array': game_user_array})
-        except Exception as e:
-            return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
-    else: 
-        return JsonResponse({'success':False, 'reason': 'no players in this game'})
+# @api_view(['GET'])
+# @login_required    
+# def players(request):
+#     # print('YOU ARE IN THE PLAYERS')
+#     user_email = request.user.email
+#     user = getUser(user_email)
+#     # game_user= Game_User.objects.get(player = user)
+#     game_user = Game_User.objects.filter(player = user)
+#     game = game_user[len(game_user)-1].game    
+#     all_game_users= Game_User.objects.filter(game = game)
+#     print('ALL GAME USERS', all_game_users)
+#     if all_game_users:
+#         try:
+#             players=[]
+#             game_user_array=[]
+#             for game_user in all_game_users:
+#                 user = game_user.player
+#                 if user.email not in players:
+#                     players.append([user.email, game_user.player_points])
+#                 if model_to_dict(game_user) not in game_user_array:
+#                     game_user_array.append(model_to_dict(game_user))
+#             print('GAME USER ARRAY LINE 540', game_user_array)
+#             return JsonResponse({'success':True, 'players': players, 'game_user_array': game_user_array})
+#         except Exception as e:
+#             return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
+#     else: 
+#         return JsonResponse({'success':False, 'reason': 'no players in this game'})
 
 @api_view(['PUT'])
 @login_required
@@ -631,6 +617,44 @@ def reset_round(request):
             return JsonResponse({'success':True, 'action': 'round reset'})
     except Exception as e:
         return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
+
+@api_view(['GET'])
+@login_required    
+def game_info(request):
+    print('YOU ARE IN THE GET GAME INFO')
+    user_email = request.user.email
+    user = getUser(user_email)
+    game_user = Game_User.objects.filter(player = user)
+    game = game_user[len(game_user)-1].game
+    all_game_users= Game_User.objects.filter(game = game)
+    print('ALL GAME USERS', all_game_users)
+    round = game.round
+    print('VIEW SELECTED CARDS GAME', game, 'SELECTED CARDS ROUND', round)
+    selected_cards_objects= Game_Card.objects.filter(round_selected=round, game = game)
+    print('SELECTED CARD OBJECTS LINE 654', selected_cards_objects)
+    selected_cards = []
+    try:
+        if selected_cards_objects:
+            for card in selected_cards_objects:
+                if model_to_dict(card) not in selected_cards:
+                    selected_cards.append(model_to_dict(card))
+        players=[]
+        game_user_array=[]
+        for game_user in all_game_users:
+            user = game_user.player
+            if user.email not in players:
+                players.append([user.email, game_user.player_points])
+            if model_to_dict(game_user) not in game_user_array:
+                game_user_array.append(model_to_dict(game_user))
+        print('GAME USER ARRAY LINE 669', game_user_array)            
+        return JsonResponse({'success':True, 'selected_cards': selected_cards, 'players': players, 'game_user_array': game_user_array, 'game': model_to_dict(game)})
+    except Exception as e:
+        return JsonResponse({'success': False, 'reason': f'something went wrong {str(e)}'})
+    # else: 
+    #     return JsonResponse({'success':False, 'reason': 'no selected cards'})
+
+# I just added 'get players' and 'get game users' into this function, I need to change around my function about figuring out who has voted. Also the user who JOINED the game didnt have "leave game" option in navbar.
+
 
 
 # source ~/VEnvirons/WhatTheMeme/bin/activate
